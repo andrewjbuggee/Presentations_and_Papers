@@ -453,3 +453,303 @@ annotation('textbox',[0.134 0.802 0.142 0.114],...
 
 
 
+%% FIGURE 2
+
+% Plot weighting functions of the first 7 MODIS spectral channels
+% These weighting functions were created using the VOCALS-REx data set from
+% Nov-9-2023. The droplet profile and optical depth were modeled after the
+% vertical profile sampled at 1.734 hrs after the plane took off. The SZA
+% was set as the value measured by MODIS for the median pixel, the pixel
+% found closest the C130 aircraft in the middle of it's ascent through the
+% cloud. 
+
+filenames = {'2D_MC_05-Sep-2023_Wavelength_469_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat',...
+             '2D_MC_05-Sep-2023_Wavelength_555_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat',...
+             '2D_MC_05-Sep-2023_Wavelength_645_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat',...
+             '2D_MC_05-Sep-2023_Wavelength_858.5_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat',...
+             '2D_MC_05-Sep-2023_Wavelength_1240_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat',...
+             '2D_MC_05-Sep-2023_Wavelength_1640_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat',...
+             '2D_MC_05-Sep-2023_Wavelength_2130_N-Photons_10000000_N-Layers_100_Tau0_15_SZA_27.mat'};
+
+% plot as a pdf
+probability_str = 'pdf';
+
+% define the wavelengths as the changing variables
+wavelength = modisBands(1:7);
+changing_variable = wavelength(:,1);        % center wavelenghts in nm
+
+plot_probability_scat_top_maxDepth_with_changing_variable(filenames, probability_str ,changing_variable)
+
+
+
+%% FIGURE 3
+
+% Plot the single wavelength retrieved droplet radius for each of the 7 wavelengths
+
+figure; 
+plot(inputs.dropletProfile.re, inputs.dropletProfile.tau_layer_mid_points)
+% flip the y axis so 0 is at the depth
+set(gca, 'YDir', 'reverse')
+grid on; grid minor
+xlabel('$r_e(\tau)$','Interpreter','latex');
+ylabel('$\tau$','Interpreter','latex')
+
+hold on
+for nn = 1:length(filenames)
+    
+    % Load a simulation
+    load(filenames{nn})
+
+    % compute the PDF of photons scattering out the top after reaching a
+    % max depth of tau
+        % First select those photons that were scattered out the top
+
+    index_scatter_out_top = final_state.scatter_out_top_INDEX;
+
+    [scatter_out_top_maxDepth_PDF, scatter_out_top_maxDepth_PDF_edges] = ...
+        histcounts(photon_tracking.maxDepth(index_scatter_out_top),'Normalization',probability_str);
+
+    % independent TAU variable for the PDF
+    tau_pdf = scatter_out_top_maxDepth_PDF_edges(1:end-1) + diff(scatter_out_top_maxDepth_PDF_edges)/2;
+
+    % interpolate to get a droplet profile the same lenght as the PDF
+    interp_re = interp1(inputs.dropletProfile.tau_layer_mid_points, inputs.dropletProfile.re, tau_pdf, 'spline');
+
+    retrieved_re = trapz(tau_pdf, interp_re .* scatter_out_top_maxDepth_PDF);
+
+    % add a vertical line to the plot
+    xline(retrieved_re, 'LineStyle','--', 'LineWidth',2, 'Color', 'k',...
+        'Label',['$\lambda = $',  num2str(round(inputs.mie.wavelength(1))), ' $\mu m$'],...
+        'LabelHorizontalAlignment','center', 'LabelVerticalAlignment','bottom', ...
+        'Interpreter','latex', 'FontSize', 15)
+
+
+
+end
+
+set(gcf, 'Position',[0 0 1000 630])
+
+
+%% FIGURE 4 
+
+% Compute the standard deviation of droplet size over some identified
+% length scale. Slide this length scale across the horizontal profile and
+% compute the standard deviation for each window. Do this for each profile
+% in a data set
+
+
+clear variables
+
+% Plot the liquid wtaer content, effective radius and number concentration
+% as a function of horizontal distance travelled for a single day of data
+
+% grab the filepath name according to which computer is being used
+
+if strcmp(whatComputer, 'anbu8374')==true
+
+    folder_path = '/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1/';
+
+elseif strcmp(whatComputer, 'andrewbuggee')==true
+
+    folder_path = ['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/', ...
+    'VOCALS_REx/vocals_rex_data/SPS_1/'];
+
+
+end
+
+% Oct-15-2008 Data
+%filename = 'RF01.20081015.164800_201200.PNI.nc';
+
+% Oct-18-2008 Data
+%filename = 'RF02.20081018.130300_213000.PNI.nc';
+
+% Oct-21-2008 Data
+%filename = 'RF03.20081021.060000_142400.PNI.nc';
+
+% Oct-25-2008 Data
+% filename = 'RF05.20081025.062900_152500.PNI.nc';
+
+% ----- November 9 data -----
+filename = 'RF11.20081109.125700_213600.PNI.nc';
+
+% ------ November 11 data -----
+%filename = 'RF12.20081111.125000_214500.PNI.nc';
+
+% ----- November 13 data -----
+%filename = 'RF13.20081113.125700_215700.PNI.nc';
+
+% ----- November 15 data -----
+%filename = 'RF14.20081115.125800_220400.PNI.nc';
+
+
+vocalsRex = readVocalsRex([folder_path, filename]);
+
+
+% ---- set thresholds for the LWC and Nc ---
+LWC_threshold = 0.03;       % g/m^3
+Nc_threshold = 1;           % cm^{-3}
+max_vertical_displacement = 12;     % meters
+
+% ---- Find all Horizontal Profiles ---
+horz_profs = find_horizontalProfiles_VOCALS_REx(vocalsRex, LWC_threshold, Nc_threshold, max_vertical_displacement);
+
+% --- Define the horizontal length scale to compute statistics over ---
+length_scale = 1000;        % meters
+
+% Loop through each profile
+
+for nn = 1:length(horz_profs.lwc)
+
+    % step trough each individual droplet size profile
+    mean_lengthScale{nn} = [];
+    std_lengthScale{nn} = [];
+
+    for rr = 2:length(horz_profs.re{nn})
+
+        % First, check to see if the remaining distance between rr and the
+        % end of our horizontal profile is greater than our length scale. 
+        % If not, break the for loop
+        if (horz_profs.horz_dist{nn}(end) - horz_profs.horz_dist{nn}(rr))>length_scale
+        
+            idx_displacement = 0;
+            % find data points that make up 1 km
+            dist_1km = horz_profs.horz_dist{nn}(rr+idx_displacement) - horz_profs.horz_dist{nn}(rr-1);
+    
+            while dist_1km<length_scale
+                
+                % step to the next data point
+                idx_displacement = idx_displacement + 1;
+                dist_1km = horz_profs.horz_dist{nn}(rr+idx_displacement) - horz_profs.horz_dist{nn}(rr-1);
+    
+            end
+    
+            % when the distance between two data points reaches 1000 meters,
+            % stop and calculate the mean and standard deviation
+            mean_lengthScale{nn} = [mean_lengthScale{nn}, mean(horz_profs.re{nn}(rr-1 : rr+idx_displacement))];         % microns
+            std_lengthScale{nn} = [std_lengthScale{nn}, std(horz_profs.re{nn}(rr-1 : rr+idx_displacement))];           % microns
+
+        else
+
+            break
+
+        end
+
+    end
+
+end
+
+
+
+% ----- PLOT 1 -----
+% Plot the mean versus the standard deviation for each profile
+figure; 
+for nn = 1:length(mean_lengthScale)
+    plot(std_lengthScale{nn}, mean_lengthScale{nn}, '.-', 'Linewidth', 1.75,...
+        'MarkerSize', 15)
+    hold on
+
+end
+    
+    
+    % Include an x axis label on the middle plot
+xlabel('$\sigma(r_e)$ ($\mu m$)', 'Interpreter','latex');
+
+grid on; grid minor;
+ylabel('$\left<r_e\right>$ ($\mu m$)', 'Interpreter','latex')
+
+title(['Mean and STD over length scale of ', num2str(length_scale), ' meters'], 'Interpreter','latex')
+
+% set plot size
+set(gcf, 'Position', [0 0 1200 625])
+
+
+
+% ----- PLOT 2 -----
+% Try plotting the standard deviation for every length scale as a histogram
+
+figure;
+for nn = 1:length(mean_lengthScale)
+    
+    histogram(std_lengthScale{nn}, 10, 'FaceAlpha', 0.5)
+    hold on
+
+
+
+end
+
+% Include an x axis label on the middle plot
+xlabel('$\sigma(r_e)$ ($\mu m$)', 'Interpreter','latex');
+
+grid on; grid minor;
+ylabel('Counts', 'Interpreter','latex')
+
+title(['STD over length scale of ', num2str(length_scale), ' meters'], 'Interpreter','latex')
+
+% set plot size
+set(gcf, 'Position', [0 0 625 625])
+
+
+
+
+%% FIGURE 5
+
+clear variables
+
+% Plot the liquid wtaer content, effective radius and number concentration
+% as a function of horizontal distance travelled for a single day of data
+
+% grab the filepath name according to which computer is being used
+
+if strcmp(whatComputer, 'anbu8374')==true
+
+    folder_path = '/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1/';
+
+elseif strcmp(whatComputer, 'andrewbuggee')==true
+
+    folder_path = ['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/', ...
+    'VOCALS_REx/vocals_rex_data/SPS_1/'];
+
+
+end
+
+% Oct-15-2008 Data
+%filename = 'RF01.20081015.164800_201200.PNI.nc';
+
+% Oct-18-2008 Data
+%filename = 'RF02.20081018.130300_213000.PNI.nc';
+
+% Oct-21-2008 Data
+%filename = 'RF03.20081021.060000_142400.PNI.nc';
+
+% Oct-25-2008 Data
+% filename = 'RF05.20081025.062900_152500.PNI.nc';
+
+% ----- November 9 data -----
+filename = 'RF11.20081109.125700_213600.PNI.nc';
+
+% ------ November 11 data -----
+%filename = 'RF12.20081111.125000_214500.PNI.nc';
+
+% ----- November 13 data -----
+%filename = 'RF13.20081113.125700_215700.PNI.nc';
+
+% ----- November 15 data -----
+%filename = 'RF14.20081115.125800_220400.PNI.nc';
+
+
+vocalsRex = readVocalsRex([folder_path, filename]);
+
+
+% ---- set thresholds for the LWC and Nc ---
+LWC_threshold = 0.03;       % g/m^3
+Nc_threshold = 1;           % cm^{-3}
+max_vertical_displacement = 20;     % meters
+
+% ---- Find all Horizontal Profiles ---
+horz_profs = find_horizontalProfiles_VOCALS_REx(vocalsRex, LWC_threshold, Nc_threshold, max_vertical_displacement);
+
+
+% ---- Plot the properties of all horizontal profiles collected ---
+plot_horiztonal_profiles_LWC_and_re_and_Nc(horz_profs, 1:length(horz_profs.re), true)
+
+
