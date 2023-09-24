@@ -15,17 +15,37 @@ clear variables
 
 % First, load ensemble data
 
-% --- non-precip profiles only, LWC>0.005, Nc>1 ----
-% load(['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/VOCALS_REx/vocals_rex_data',...
-%  '/SPS_1/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.005_Nc-threshold_1_17-Sep-2023'])
+% grab the filepath name according to which computer is being used
 
-% --- non-precip profiles only, LWC>0.03, Nc>1, stop at max LWC ----
-% load(['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/VOCALS_REx/vocals_rex_data',...
-%     '/SPS_1/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_stopAtMaxLWC_Nc-threshold_1_19-Sep-2023'])
+if strcmp(whatComputer, 'anbu8374')==true
 
-% --- all profiles, LWC>0.005, Nc>1 ----
-load(['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/VOCALS_REx/vocals_rex_data',...
-    '/ensemble_profiles_from_14_files_LWC-threshold_0.005_Nc-threshold_1_14-Sep-2023'])
+    % --- non-precip profiles only, LWC>0.03, Nc>1  ----
+%     load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
+%         '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_Nc-threshold_1_19-Sep-2023'])
+
+
+    % --- non-precip profiles only, LWC>0.03, Nc>1, stop at max LWC ----
+    load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
+        '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_stopAtMaxLWC_Nc-threshold_1_19-Sep-2023'])
+
+elseif strcmp(whatComputer, 'andrewbuggee')==true
+
+    % --- non-precip profiles only, LWC>0.005, Nc>1 ----
+    % load(['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/VOCALS_REx/vocals_rex_data',...
+    %  '/SPS_1/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.005_Nc-threshold_1_17-Sep-2023'])
+
+    % --- non-precip profiles only, LWC>0.03, Nc>1, stop at max LWC ----
+    % load(['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/VOCALS_REx/vocals_rex_data',...
+    %     '/SPS_1/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_stopAtMaxLWC_Nc-threshold_1_19-Sep-2023'])
+
+    % --- all profiles, LWC>0.005, Nc>1 ----
+    load(['/Users/andrewbuggee/Documents/MATLAB/CU Boulder/Hyperspectral_Cloud_Retrievals/VOCALS_REx/vocals_rex_data',...
+        '/ensemble_profiles_from_14_files_LWC-threshold_0.005_Nc-threshold_1_14-Sep-2023'])
+
+
+end
+
+
 
 
 % using the median ensemble function to plot the median vertical profile of
@@ -410,7 +430,7 @@ set(gcf, 'Position', [0 0 1255 625])
 
 
 % ----------------------------------------------------------------------
-% ----------------------------------------------------------------------
+% ----------------------- Adiabatic Curve Fits -------------------------
 % ----------------------------------------------------------------------
 
 % Plot an adiabatic curve fit to the mean droplet profile and the mean lwc
@@ -427,7 +447,7 @@ plot(re_adiabatic_fit, bin_center, 'k', 'LineWidth',2)
 
 
 % ----- Fit an adiabatic curve to the mean liquid water content profile -----
-nudge_from_start = 0;
+nudge_from_start = 2;
 lwc_slope = (lwc_mean(end-nudge_from_start) - lwc_mean(1))/(bin_center(end-nudge_from_start) - bin_center(1));
 lwc_intercept = lwc_mean(1) - lwc_slope*bin_center(1);
 lwc_adiabatic_fit = lwc_slope*bin_center(1:end-nudge_from_start) + lwc_intercept;
@@ -666,12 +686,15 @@ set(gcf, 'Position', [0 0 1200 625])
 
 % ----- PLOT 2 -----
 % Try plotting the standard deviation for every length scale as a histogram
+legend_str = cell(1, length(std_lengthScale));
 
 figure;
 for nn = 1:length(mean_lengthScale)
     
     histogram(std_lengthScale{nn}, 10, 'FaceAlpha', 0.5)
     hold on
+
+    legend_str{nn} = ['index = ', num2str(nn), ' $\left<\sigma(r_e)\right> = \,$', num2str(mean(std_lengthScale{nn})), ' $\mu m$'];
 
 
 
@@ -685,8 +708,10 @@ ylabel('Counts', 'Interpreter','latex')
 
 title(['STD over length scale of ', num2str(length_scale), ' meters'], 'Interpreter','latex')
 
+legend(legend_str, 'Interpreter','latex', 'Location','best', 'FontSize', 19)
+
 % set plot size
-set(gcf, 'Position', [0 0 625 625])
+set(gcf, 'Position', [0 0 1200 625])
 
 
 
@@ -743,7 +768,7 @@ vocalsRex = readVocalsRex([folder_path, filename]);
 % ---- set thresholds for the LWC and Nc ---
 LWC_threshold = 0.03;       % g/m^3
 Nc_threshold = 1;           % cm^{-3}
-max_vertical_displacement = 20;     % meters
+max_vertical_displacement = 10;     % meters
 
 % ---- Find all Horizontal Profiles ---
 horz_profs = find_horizontalProfiles_VOCALS_REx(vocalsRex, LWC_threshold, Nc_threshold, max_vertical_displacement);
