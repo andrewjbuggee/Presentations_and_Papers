@@ -20,13 +20,17 @@ clear variables
 if strcmp(whatComputer, 'anbu8374')==true
 
     % --- non-precip profiles only, LWC>0.03, Nc>1  ----
-%     load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
-%         '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_Nc-threshold_1_19-Sep-2023'])
+    load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
+        '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_Nc-threshold_1_19-Sep-2023'])
 
 
     % --- non-precip profiles only, LWC>0.03, Nc>1, stop at max LWC ----
-    load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
-        '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_stopAtMaxLWC_Nc-threshold_1_19-Sep-2023'])
+%     load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
+%         '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_stopAtMaxLWC_Nc-threshold_1_19-Sep-2023'])
+
+    % --- non-precip profiles only, LWC>0.005, Nc>1  ----
+%     load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1/',...
+%         'ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.005_Nc-threshold_1_17-Sep-2023.mat'])
 
 elseif strcmp(whatComputer, 'andrewbuggee')==true
 
@@ -297,7 +301,7 @@ lwc_mean = zeros(n_bins, 1);
 lwc_std = zeros(n_bins, 1);
 
 
-% ---- most common best fit distribution for N_c was is the gamma dist ---
+% ---- most common best fit distribution for N_c was is the normal dist ---
 Nc_mean = zeros(n_bins, 1);
 Nc_std = zeros(n_bins, 1);
 
@@ -324,24 +328,26 @@ for bb = 1:n_bins
     % compute the mean value for the current bin
     % the mean of the distribution (the standard way of computing the expected value)
     % is also the mean of the normal distribution. They are identical.
-    lwc_mean(bb) = mean(vertically_segmented_attributes{bb,2});       % microns - mean droplet radius value
+    lwc_mean(bb) = mean(vertically_segmented_attributes{bb,2});       % g/cm^3 - mean liqiud water content
+    %lwc_mean(bb) = lwc_fit_gamma(bb).mean;       % g/cm^3 - mean liqiud water content
 
     % compute the standard deviation of the current bin
     % the std of the distribution (the standard way of computing the squareroot of the variance)
     % is also the std of the normal distribution. They are identical.
-    lwc_std(bb) = std(vertically_segmented_attributes{bb,2});         % microns - standard deviation
-
+    lwc_std(bb) = std(vertically_segmented_attributes{bb,2});         % g/cm^3 - standard deviation
+    %lwc_std(bb) = lwc_fit_gamma(bb).std;         % g/cm^3 - standard deviation
 
 
 
     % ----- COMPUTE STATISTICS FOR DROPLET NUMBER CONCENTRATION -----
 
     % compute the mean value for the current bin
-    Nc_mean(bb) = Nc_fit_gamma(bb).mean;       % microns - mean droplet radius value
+    %Nc_mean(bb) = Nc_fit_gamma(bb).mean;       % cm^(-3) - mean number concentration
+    Nc_mean(bb) = Nc_fit_normal(bb).mean;       % cm^(-3) - mean number concentration
 
     % compute the standard deviation of the current bin
-    Nc_std(bb) = Nc_fit_gamma(bb).std;         % microns - standard deviation
-
+    %Nc_std(bb) = Nc_fit_gamma(bb).std;         % cm^(-3) - standard deviation
+    Nc_std(bb) = Nc_fit_normal(bb).std;         % cm^(-3) - standard deviation
 
     % compute the bin center which is the tau location of the mean data
     bin_center(bb) = (bin_edges(bb+1) - bin_edges(bb))/2 + bin_edges(bb);
@@ -353,7 +359,7 @@ end
 % ----------------------------------------------------------------------
 % ----------------------------------------------------------------------
 
-% Make a subplot of all 3 median profiles
+% Make a subplot of all 3 mean profiles
 
 
 figure; 
@@ -361,7 +367,7 @@ figure;
 % plot the median effective radius
 subplot(1,3,1)
 
-% plot the standard deviation of the median profile as an transparent area
+% plot the standard deviation of the mean profile as an transparent area
 % centered around the mean radius profile
 x = [re_logNormal_mean - re_logNormal_std; flipud(re_logNormal_mean + re_logNormal_std)];
 y = [bin_center; flipud(bin_center)];
@@ -369,13 +375,17 @@ fill(x,y,mySavedColors(2,'fixed'), 'EdgeAlpha', 0, 'FaceAlpha', 0.2)
 
 hold on
 
-% plot the median droplet profile
+% plot the mean droplet profile
 plot(re_logNormal_mean, bin_center, 'Color', mySavedColors(2, 'fixed'))
 
 
 grid on; grid minor
 xlabel('$<r_e(z)>$ $(\mu m)$', 'Interpreter','latex')
 ylabel('Normalized Altitude', 'Interpreter', 'latex')
+
+% set x axis boundaries
+xlim([4, 10])                   % microns
+
 
 
 % plot the median liquid water content profile
@@ -397,10 +407,15 @@ grid on; grid minor
 xlabel('$<LWC(z)>$ $(g/m^{3})$', 'Interpreter','latex')
 ylabel('Normalized Altitude', 'Interpreter','latex')
 
+% set x axis boundaries
+xlim([0, 0.6])                   % g/cm^3
+
 % set the figure title
-title(['Median Profiles:  $LWC \geq$', num2str(ensemble_profiles.inputs.LWC_threshold), ' $g/m^{3}$',...
+title(['Mean Profiles:  $LWC \geq$', num2str(ensemble_profiles.inputs.LWC_threshold), ' $g/m^{3}$',...
     '   $N_c \geq$',  num2str(ensemble_profiles.inputs.Nc_threshold), ' $cm^{-3}$'],...
     'Interpreter','latex')
+
+
 
 
 
@@ -423,6 +438,9 @@ grid on; grid minor
 xlabel('$<N_c(z)>$ $(cm^{-3})$', 'Interpreter','latex')
 ylabel('Normalized Altitude', 'Interpreter', 'latex')
 
+% set x axis boundaries
+xlim([0, 320])                   % cm^(-3)
+
 % set the size of the figure
 set(gcf, 'Position', [0 0 1255 625])
 
@@ -435,26 +453,27 @@ set(gcf, 'Position', [0 0 1255 625])
 
 % Plot an adiabatic curve fit to the mean droplet profile and the mean lwc
 % profile
+nudge_from_bottom = 0;
 
 % ----- Fit an adiabatic curve to the mean droplet profile -----
-re_adiabatic_fit = create_droplet_profile2([re_logNormal_mean(end), re_logNormal_mean(1)], bin_center,...
-                'altitude', 'adiabatic');
+re_adiabatic_fit = create_droplet_profile2([re_logNormal_mean(end), re_logNormal_mean(1 + nudge_from_bottom)],...
+                bin_center(1+nudge_from_bottom:end),'altitude', 'adiabatic');
 
 % add to subplot(1,3,1)
 subplot(1,3,1); hold on
-plot(re_adiabatic_fit, bin_center, 'k', 'LineWidth',2)
+plot(re_adiabatic_fit, bin_center(1+nudge_from_bottom:end), 'k', 'LineWidth',2)
 
 
 
 % ----- Fit an adiabatic curve to the mean liquid water content profile -----
-nudge_from_start = 2;
-lwc_slope = (lwc_mean(end-nudge_from_start) - lwc_mean(1))/(bin_center(end-nudge_from_start) - bin_center(1));
+nudge_from_top = 2;
+lwc_slope = (lwc_mean(end-nudge_from_top) - lwc_mean(1))/(bin_center(end-nudge_from_top) - bin_center(1));
 lwc_intercept = lwc_mean(1) - lwc_slope*bin_center(1);
-lwc_adiabatic_fit = lwc_slope*bin_center(1:end-nudge_from_start) + lwc_intercept;
+lwc_adiabatic_fit = lwc_slope*bin_center(1:end-nudge_from_top) + lwc_intercept;
 
 % add to subplot(1,3,1)
 subplot(1,3,2); hold on
-plot(lwc_adiabatic_fit, bin_center(1:end-nudge_from_start), 'k', 'LineWidth',2)
+plot(lwc_adiabatic_fit, bin_center(1:end-nudge_from_top), 'k', 'LineWidth',2)
 
 % -- Include a legend in the lower right-hand corner of the 2nd subplot --
 legend({'Standard Deviation', 'Mean Profile', 'Adiabatic Fit'}, 'Interpreter','latex',...
@@ -608,7 +627,7 @@ vocalsRex = readVocalsRex([folder_path, filename]);
 % ---- set thresholds for the LWC and Nc ---
 LWC_threshold = 0.03;       % g/m^3
 Nc_threshold = 1;           % cm^{-3}
-max_vertical_displacement = 12;     % meters
+max_vertical_displacement = 10;     % meters
 
 % ---- Find all Horizontal Profiles ---
 horz_profs = find_horizontalProfiles_VOCALS_REx(vocalsRex, LWC_threshold, Nc_threshold, max_vertical_displacement);
@@ -775,6 +794,6 @@ horz_profs = find_horizontalProfiles_VOCALS_REx(vocalsRex, LWC_threshold, Nc_thr
 
 
 % ---- Plot the properties of all horizontal profiles collected ---
-plot_horiztonal_profiles_LWC_and_re_and_Nc(horz_profs, 1:length(horz_profs.re), true)
+plot_horiztonal_profiles_LWC_and_re_and_Nc(horz_profs, 1:length(horz_profs.re), false)
 
 
