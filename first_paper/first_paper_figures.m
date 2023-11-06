@@ -2698,15 +2698,26 @@ title('best distribution fit'); ylabel('Counts')
 % distribution using the gamma fit
 
 
-figure;
+
 
 for ll = 1:length(length_scale)
 
-    pm_1sigma(ll) = 2*dist_fit_gamma(ll).std;       % microns                       
+    pm_1sigma(ll) = 2*dist_fit_gamma(ll).std;       % microns        
+
+    % grab the median of the distribution
+    % does this value change with pixel length scale?
+    dist_median(ll) = dist_fit_gamma(ll).median;    %   microns
+
+
+    % grab the mean of the distribution
+    % does this value change with pixel length scale?
+    dist_mean(ll) = dist_fit_gamma(ll).mean;    %   microns
 
 end
-    
 
+
+% ----- PLOT +/- 1SIGMA (2*SIGMA) -----
+figure;
 plot(length_scale./1e3, pm_1sigma, '.', 'MarkerSize', 25, ...
     'Color', mySavedColors(1, 'fixed'))
 hold on
@@ -2718,6 +2729,47 @@ grid on; grid minor;
 ylabel('$\pm \, 1 \sigma$  ($\mu m$)', 'Interpreter','latex')
 
 title('$\pm \, 1 \sigma$ of the distribution of STDs for each length scale', 'Interpreter','latex')
+
+
+% set plot size
+set(gcf, 'Position', [0 0 1200 625])
+
+
+
+% ----- PLOT MEDIAN -----
+figure;
+plot(length_scale./1e3, dist_median, '.', 'MarkerSize', 25, ...
+    'Color', mySavedColors(1, 'fixed'))
+hold on
+
+% Include an x axis label on the middle plot
+xlabel('Pixel Length Scale (km)', 'Interpreter','latex');
+
+grid on; grid minor;
+ylabel('Median  ($\mu m$)', 'Interpreter','latex')
+
+title('Median of the distribution of STDs for each length scale', 'Interpreter','latex')
+
+
+% set plot size
+set(gcf, 'Position', [0 0 1200 625])
+
+
+
+
+% ----- PLOT MEAN -----
+figure;
+plot(length_scale./1e3, dist_mean, '.', 'MarkerSize', 25, ...
+    'Color', mySavedColors(1, 'fixed'))
+hold on
+
+% Include an x axis label on the middle plot
+xlabel('Pixel Length Scale (km)', 'Interpreter','latex');
+
+grid on; grid minor;
+ylabel('Mean  ($\mu m$)', 'Interpreter','latex')
+
+title('Mean of the distribution of STDs for each length scale', 'Interpreter','latex')
 
 
 % set plot size
