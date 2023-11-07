@@ -531,8 +531,14 @@ clear variables
 if strcmp(whatComputer, 'anbu8374')==true
 
     % --- non-precip profiles only, LWC>0.03, Nc>1  ----
+%     load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
+%         '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_Nc-threshold_1_19-Sep-2023'])
+
+    
+    % ***** Using new VOCALS READ function with LWC adjustment *****
+    % --- non-precip profiles only, LWC>0.03, Nc>1  ----
     load(['/Users/anbu8374/Documents/MATLAB/HyperSpectral_Cloud_Retrieval/VOCALS_REx/vocals_rex_data/SPS_1',...
-        '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_Nc-threshold_1_19-Sep-2023'])
+        '/ensemble_profiles_without_precip_from_14_files_LWC-threshold_0.03_Nc-threshold_1_05-Nov-2023.mat'])
 
 
     % --- non-precip profiles only, LWC>0.03, Nc>1, stop at max LWC ----
@@ -775,8 +781,8 @@ bin_names = {'Normal', 'Log-Normal', 'Gamma'};
 % -----------------------------------------------
 [max__re_p, idx_re_p] = max([re_p_normal; re_p_lognormal; re_p_gamma],[], 1);
 
-% figure; histogram('Categories', bin_names, 'BinCounts', [sum(idx_re_p==1), sum(idx_re_p==2), sum(idx_re_p==3)]);
-% title('r_e best distribution fit'); ylabel('Counts')
+figure; histogram('Categories', bin_names, 'BinCounts', [sum(idx_re_p==1), sum(idx_re_p==2), sum(idx_re_p==3)]);
+title('r_e best distribution fit'); ylabel('Counts')
 
 
 
@@ -785,8 +791,8 @@ bin_names = {'Normal', 'Log-Normal', 'Gamma'};
 % -------------------------------------------
 [max__lwc_p, idx_lwc_p] = max([lwc_p_normal; lwc_p_lognormal; lwc_p_gamma],[], 1);
 
-% figure; histogram('Categories', bin_names, 'BinCounts', [sum(idx_lwc_p==1), sum(idx_lwc_p==2), sum(idx_lwc_p==3)]);
-% title('LWC best distribution fit'); ylabel('Counts')
+figure; histogram('Categories', bin_names, 'BinCounts', [sum(idx_lwc_p==1), sum(idx_lwc_p==2), sum(idx_lwc_p==3)]);
+title('LWC best distribution fit'); ylabel('Counts')
 
 
 % -------------------------------------------
@@ -795,8 +801,8 @@ bin_names = {'Normal', 'Log-Normal', 'Gamma'};
 
 [max__Nc_p, idx_Nc_p] = max([Nc_p_normal; Nc_p_lognormal; Nc_p_gamma],[], 1);
 
-% figure; histogram('Categories', bin_names, 'BinCounts', [sum(idx_Nc_p==1), sum(idx_Nc_p==2), sum(idx_Nc_p==3)]);
-% title('N_c best distribution fit'); ylabel('Counts')
+figure; histogram('Categories', bin_names, 'BinCounts', [sum(idx_Nc_p==1), sum(idx_Nc_p==2), sum(idx_Nc_p==3)]);
+title('N_c best distribution fit'); ylabel('Counts')
 
 
 
@@ -813,9 +819,12 @@ re_custom_logNormal_std_larger = zeros(n_bins, 1);
 re_custom_logNormal_std_smaller = zeros(n_bins, 1);
 
 % ---- most common best fit distribution for LWC was is the normal dist ---
-lwc_median = zeros(n_bins, 1);
-lwc_std = zeros(n_bins, 1);
-
+% lwc_median = zeros(n_bins, 1);
+% lwc_std = zeros(n_bins, 1);
+lwc_logNormal_std = zeros(n_bins, 1);
+lwc_logNormal_median = zeros(n_bins, 1);
+lwc_custom_logNormal_std_larger = zeros(n_bins, 1);
+lwc_custom_logNormal_std_smaller = zeros(n_bins, 1);
 
 % ---- most common best fit distribution for N_c was is the normal dist ---
 Nc_median = zeros(n_bins, 1);
@@ -854,22 +863,43 @@ for bb = 1:n_bins
 
 
     % ----- COMPUTE STATISTICS FOR LIQUID WATER CONTENT -----
+    
+    % find the mean of the log normal distribution
+    lwc_logNormal_median(bb) = lwc_fit_lognormal(bb).median;
 
+    % find squareroot of the variance of the lognormal distribution
+    lwc_logNormal_std(bb) = sqrt(exp(2*lwc_fit_lognormal(bb).mu + lwc_fit_lognormal(bb).sigma^2)*(exp(lwc_fit_lognormal(bb).sigma^2) - 1));
+
+    % Let's also compute the average deviation from the median value when
+    % lwc is larger and smaller than the median.
+    % For lwc larger than the median...
+    idx_larger = vertically_segmented_attributes{bb,2}>lwc_logNormal_median(bb);
+    lwc_larger = vertically_segmented_attributes{bb,2}(idx_larger);
+    lwc_custom_logNormal_std_larger(bb) = sqrt(mean((lwc_larger - lwc_logNormal_median(bb)).^2));
+
+    % For lwc smaller than the median...
+    idx_smaller = vertically_segmented_attributes{bb,2}<lwc_logNormal_median(bb);
+    lwc_smaller = vertically_segmented_attributes{bb,2}(idx_smaller);
+    lwc_custom_logNormal_std_smaller(bb) = sqrt(mean((lwc_smaller - lwc_logNormal_median(bb)).^2));
+    %re_custom_logNormal_std_smaller(bb) = mean(re_logNormal_median(bb) - re_smaller);
+    
+    % --- for normal distribution statistics ---
     % compute the mean value for the current bin
     % the mean of the distribution (the standard way of computing the expected value)
     % is also the mean of the normal distribution. They are identical.
-    lwc_median(bb) = median(vertically_segmented_attributes{bb,2});       % g/cm^3 - mean liqiud water content
+    %lwc_median(bb) = median(vertically_segmented_attributes{bb,2});       % g/cm^3 - mean liqiud water content
 
     % compute the standard deviation of the current bin
     % the std of the distribution (the standard way of computing the squareroot of the variance)
     % is also the std of the normal distribution. They are identical.
-    lwc_std(bb) = std(vertically_segmented_attributes{bb,2});         % g/cm^3 - standard deviation
-    %lwc_std(bb) = lwc_fit_gamma(bb).std;         % g/cm^3 - standard deviation
+    %lwc_std(bb) = std(vertically_segmented_attributes{bb,2});         % g/cm^3 - standard deviation
+
 
 
 
     % ----- COMPUTE STATISTICS FOR DROPLET NUMBER CONCENTRATION -----
-
+    
+    % --- Use Normal distribution statistics ---
     % compute the mean value for the current bin
     Nc_median(bb) = Nc_fit_normal(bb).median;       % cm^(-3) - mean number concentration
 
@@ -893,7 +923,10 @@ end
 
 figure;
 
+% --------------------------------
 % plot the median effective radius
+% --------------------------------
+
 subplot(1,3,1)
 
 % plot the standard deviation of the mean profile as an transparent area
@@ -917,20 +950,23 @@ ylabel('Normalized Altitude', 'Interpreter', 'latex')
 xlim([4, 12])                   % microns
 
 
-
+% --------------------------------------------
 % plot the median liquid water content profile
+% --------------------------------------------
+
 subplot(1,3,2)
 
 % plot the standard deviation of the median profile as an transparent area
 % centered around the mean radius profile
-x = [lwc_median-lwc_std; flipud(lwc_median + lwc_std)];
+% x = [lwc_median-lwc_std; flipud(lwc_median + lwc_std)];
+x = [lwc_logNormal_median - lwc_custom_logNormal_std_smaller; flipud(lwc_logNormal_median + lwc_custom_logNormal_std_larger)];
 y = [bin_center; flipud(bin_center)];
 fill(x,y,mySavedColors(2,'fixed'), 'EdgeAlpha', 0, 'FaceAlpha', 0.2)
 
 hold on
 
 % plot the median droplet profile
-plot(lwc_median, bin_center, 'Color', mySavedColors(2, 'fixed'))
+plot(lwc_logNormal_median, bin_center, 'Color', mySavedColors(2, 'fixed'))
 
 
 grid on; grid minor
@@ -983,9 +1019,11 @@ set(gcf, 'Position', [0 0 1255 625])
 
 % ------------------------- LIQUID WATER CONTENT ---------------------------
 % ----- Fit an adiabatic curve to the mean liquid water content profile -----
-nudge_from_top = 3;
-lwc_slope = (lwc_median(end-nudge_from_top) - lwc_median(1))/(bin_center(end-nudge_from_top) - bin_center(1));
-lwc_intercept = lwc_median(1) - lwc_slope*bin_center(1);
+nudge_from_top = 2;
+% lwc_slope = (lwc_median(end-nudge_from_top) - lwc_median(1))/(bin_center(end-nudge_from_top) - bin_center(1));
+% lwc_intercept = lwc_median(1) - lwc_slope*bin_center(1);
+lwc_slope = (lwc_logNormal_median(end-nudge_from_top) - lwc_logNormal_median(1))/(bin_center(end-nudge_from_top) - bin_center(1));
+lwc_intercept = lwc_logNormal_median(1) - lwc_slope*bin_center(1);
 lwc_adiabatic_fit = lwc_slope*bin_center + lwc_intercept;
 
 % add to subplot(1,3,1)
@@ -1000,7 +1038,7 @@ legend({'Standard Deviation', 'Median Profile', 'Adiabatic Fit'}, 'Interpreter',
 
 % -------------------- EFFECTIVE DROPLET RADIUS -----------------------
 % Plot an adiabatic curve fit to the mean droplet radius profile
-nudge_from_bottom = 2;
+nudge_from_bottom = 0;
 
 % ----- Fit an adiabatic curve to the mean droplet profile -----
 % use droplet profile function to create adiabatic fit
